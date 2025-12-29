@@ -1,6 +1,19 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Solution schema (placeholder)",
+  "title": "Candidate solution schema",
   "type": "object",
-  "description": "Define assignment map and label per README."
+  "required": ["assignment"],
+  "properties": {
+    "label": { "type": "string" },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": { "enum": [0, 1] }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "additionalProperties": false
 }
