@@ -1,0 +1,6 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Problem schema (placeholder)",
+  "type": "object",
+  "description": "Define variables, linear, quadratic, constraints, best_known per README."
+}

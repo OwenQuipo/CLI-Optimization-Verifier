@@ -1,0 +1,12 @@
+{
+  "label": "greedy-v1",
+  "assignment": {
+    "x1": 1,
+    "x2": 1,
+    "x3": 1
+  },
+  "metadata": {
+    "source": "example",
+    "notes": "Candidate assignment for sample run"
+  }
+}

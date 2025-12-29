@@ -1,0 +1,6 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Solution schema (placeholder)",
+  "type": "object",
+  "description": "Define assignment map and label per README."
+}

@@ -1,0 +1,33 @@
+{
+  "variables": ["x1", "x2", "x3"],
+  "linear": {
+    "x1": 1.0,
+    "x2": 2.0,
+    "x3": 2.0
+  },
+  "quadratic": [
+    ["x2", "x3", -1.0]
+  ],
+  "constraints": [
+    {
+      "label": "cap-1",
+      "lhs": {"x1": 1.0, "x2": 1.0},
+      "sense": "<=",
+      "rhs": 2.0
+    },
+    {
+      "label": "min-cover",
+      "lhs": {"x2": 1.0, "x3": 1.0},
+      "sense": ">=",
+      "rhs": 1.0
+    }
+  ],
+  "best_known": {
+    "value": 3.5,
+    "label": "paper-A"
+  },
+  "metadata": {
+    "source": "example",
+    "notes": "Toy QUBO problem for smoke tests"
+  }
+}
