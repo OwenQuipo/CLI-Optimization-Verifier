@@ -103,3 +103,18 @@ Exit code: 0
 Sample fixtures
 - `examples/problem.json`: 3-variable QUBO with two linear constraints and a provided best-known objective.
 - `examples/solution.json`: candidate assignment labeled `greedy-v1` for smoke testing.
+
+How to run
+- Install Python 3.10+.
+- Make sure the entrypoint is executable: `chmod +x bin/verify`.
+- Run: `./bin/verify examples/problem.json examples/solution.json`.
+- Optional flags (once implemented in CLI):
+  - `--compare-solvers` to run deterministic greedy/brute/anneal.
+  - `--max-brute-size` to cap brute-force search space (default 4096 states).
+- Exit codes: 0 feasible, 1 infeasible, 2 error.
+
+Encoding constraints (v0.1)
+- `linear_eq`: sum(lhs_i * x_i) == rhs (tolerance 1e-9)
+- `linear_ineq`: sum(lhs_i * x_i) <= rhs (tolerance 1e-9). Encode >= by multiplying both sides by -1 to fit <= form.
+- `at_most_k`: sum(lhs_i * x_i) <= rhs (same semantics as linear_ineq; use when coefficients are 1s and rhs is k).
+- `xor`: sum(lhs_i * x_i) == 1

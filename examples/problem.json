@@ -11,15 +11,15 @@
   "constraints": [
     {
       "label": "cap-1",
+      "type": "linear_ineq",
       "lhs": {"x1": 1.0, "x2": 1.0},
-      "sense": "<=",
       "rhs": 2.0
     },
     {
       "label": "min-cover",
-      "lhs": {"x2": 1.0, "x3": 1.0},
-      "sense": ">=",
-      "rhs": 1.0
+      "type": "linear_ineq",
+      "lhs": {"x2": -1.0, "x3": -1.0},
+      "rhs": -1.0
     }
   ],
   "best_known": {
