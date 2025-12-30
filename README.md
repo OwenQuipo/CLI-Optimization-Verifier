@@ -1,137 +1,61 @@
-CLI-first optimization verification tool (binary QUBO-style)
+CLI-first verification tool for binary QUBO problems with an approval-gated UI
 
 What this delivers
-- Deterministic verifier for binary decision vectors under linear/quadratic objectives.
-- Single command: `verify problem.json solution.json`.
-- Outputs: feasibility with violations, objective value, best-known comparator (if provided), gap estimate (never claims optimal), variable sensitivity ranking, optional solver comparison (deterministic seed).
+- Deterministic CLI: `verify problem.json solution.json` (CLI is the source of truth).
+- UI with two flows: Tab A “Verify JSON” (unchanged) and Tab B “Draft from Text” (text → structured draft → user edits → explicit “Approve & Verify”).
+- Outputs: feasibility with violations, objective value, optional best-known comparator and gap, sensitivity ranking, optional solver comparison (deterministic seed). stdout/stderr shown verbatim; exit codes respected.
 
-Directory structure
+Directory structure (key paths)
 ```
 .
-├── README.md                  # Design and execution plan
-├── bin/
-│   └── verify                 # CLI entry (Python/Go/Node wrapper; single binary later)
+├── bin/verify               # CLI entrypoint
 ├── backend/
-│   └── server.py              # Local HTTP server; wraps CLI as-is
+│   ├── server.py            # Serves frontend; endpoints /verify, /draft, /approve_and_verify
+│   └── draft_flow.py        # Text→draft translator, draft validation, deterministic draft→JSON
 ├── frontend/
-│   ├── index.html             # Minimal UI wrapper
-│   ├── main.js                # Sends inputs, displays raw outputs
-│   └── style.css              # Simple styling for demo
-├── src/
-│   ├── cli.py                 # Argument parsing, execution flow orchestration
-│   ├── models.py              # Core data models (Problem, Solution, Constraint, Objective, RunResult)
-│   ├── parser.py              # Load/validate JSON into models using schemas
-│   ├── feasibility.py         # Constraint checks and violation reporting
-│   ├── objective.py           # Objective evaluation (linear + quadratic terms)
-│   ├── sensitivity.py         # Local sensitivity via bit flips
-│   ├── comparator.py          # Best-known handling and gap computation
-│   ├── solvers.py             # Minimal internal solvers (greedy, deterministic anneal, brute if small)
-│   ├── reporting.py           # Deterministic formatting of CLI output
-│   └── utils/
-│       └── determinism.py     # Seed control, numeric tolerances
+│   ├── index.html           # Two-tab UI (Verify JSON / Draft from Text)
+│   ├── main.js              # Draft editor, warnings, approval gate, verify calls
+│   └── style.css            # UI styling
 ├── schemas/
-│   ├── problem.schema.json    # JSON Schema for problem definitions
-│   └── solution.schema.json   # JSON Schema for candidate solutions
-├── tests/
-│   ├── test_parser.py         # Schema validation, model loading
-│   ├── test_feasibility.py    # Constraint handling and violation outputs
-│   ├── test_objective.py      # Objective evaluation correctness
-│   ├── test_sensitivity.py    # Determinism of sensitivity ranking
-│   └── test_cli.py            # End-to-end run with fixtures
-└── examples/
-    ├── problem.json           # Sample problem for smoke testing
-    └── solution.json          # Sample candidate solution
+│   ├── problem.schema.json  # Problem schema
+│   └── solution.schema.json # Solution schema
+├── src/                     # CLI internals (parser, objective, feasibility, solvers, reporting, etc.)
+└── tests/                   # Pytest suite (CLI, UI parity, draft flow)
 ```
 
-Core data models (Python-style structs; any language equivalent is fine)
-- `Problem`: `variables` (list of ids), `linear` (map var->coefficient), `quadratic` (map (i,j)->coefficient with i<=j), `constraints` (list of `Constraint`), `best_known` (optional objective value + label), `metadata` (source, units).
-- `Constraint`: `lhs` terms (map var->coefficient), `sense` (<=, ==, >=), `rhs` (number), `label`.
-- `Solution`: `assignment` (map var->0/1), `label` (source of candidate), `metadata`.
-- `ObjectiveResult`: `value` (number), `components` (linear sum, quadratic sum).
-- `FeasibilityResult`: `status` (feasible/infeasible/unknown), `violations` (list of {label, amount}).
-- `SensitivityEntry`: `var`, `delta` (objective change on flip), `feasible_after_flip` (bool).
-- `RunResult`: aggregates feasibility, objective result, gap, sensitivity ranking, solver comparison summary.
+Workflows
+- CLI: `./bin/verify <problem.json> <solution.json>` → exit 0 feasible, 1 infeasible, 2 error.
+- UI Tab A (Verify JSON): paste/upload problem.json and solution.json (or load example) → “Verify” → runs CLI unchanged.
+- UI Tab B (Draft from Text):
+  1) Enter natural language → “Draft Structured Problem (unverified)” (no verification yet).
+  2) Review structured draft (variables, objective, constraints, proposed solution) with warnings banner. Errors block approval; warnings list all assumptions.
+  3) Edit via form fields (no JSON editing). Clarification questions shown if translator is unsure.
+  4) Click “Approve Structure & Verify” → backend validates draft, builds internal JSON, runs CLI, returns stdout/stderr/exit code. Optional compare-solvers toggle.
+  5) Optional: download internal JSON (clearly labeled) after approval.
 
-Strict execution flow for `verify problem.json solution.json`
-1) Load: parse JSON files, validate against schemas, and map into models; fail fast on schema errors.
-2) Pre-check: ensure binary domains, matching variable sets, deterministic seed setup.
-3) Feasibility: evaluate constraints; if any violation, mark infeasible and list violations (do not compute sensitivity if infeasible).
-4) Objective: compute linear + quadratic objective value exactly.
-5) Comparator: if `best_known` provided, compute gap = (candidate - best_known)/abs(best_known); mark "unknown" if best_known missing.
-6) Sensitivity: for each variable, flip bit (one-at-a-time), recompute objective and feasibility; rank by absolute delta (feasible flips only reported by default).
-7) Optional solver comparison (flag-gated): run deterministic greedy; if problem size below threshold, run brute force; deterministic anneal with fixed seed; compare objective values and feasibility status.
-8) Reporting: render plain-text report with sections: input summary, feasibility/violations, objective value, comparator/gap, sensitivity ranking, solver comparison; exit codes: 0 feasible, 1 infeasible, 2 error/unknown.
+Data contracts (UI ↔ backend)
+- structured_draft: {variables:[{id,label?}], objective:{sense:"min"|"max", linear_terms:[{var,coeff}], quadratic_terms:[{var_i,var_j,coeff}]}, constraints:[{label?,sense:"<="|"=="|">=",terms:[{var,coeff}],rhs:number}], candidate_solution:[{var,value:0|1}], metadata:{source_text_hash,draft_version,created_at}}
+- warnings: {code, message, severity:"info"|"warn"|"error", field_path?, assumption?}
+- translation_result: {structured_draft, warnings, needs_clarification:boolean, clarification_questions?:[]}
 
-Modules and responsibilities (v0.1)
-- `cli.py`: CLI args, flag handling (`--compare-solvers`, `--max-brute-size`), wiring modules, exit codes.
-- `parser.py`: JSON loading, schema validation, type/shape checks, ordering of variables.
-- `models.py`: Dataclasses/structs; simple container logic only.
-- `feasibility.py`: Constraint evaluation with numeric tolerance; violation calculation.
-- `objective.py`: Deterministic objective computation; enforces symmetric quadratic handling.
-- `sensitivity.py`: Bit-flip analysis; optionally limited to top-k variables; deterministic ordering ties broken by variable id.
-- `comparator.py`: Best-known extraction, gap computation; handles absent comparator as "unknown".
-- `solvers.py`: Minimal deterministic solvers; guarded by size thresholds; no randomness beyond fixed seed.
-- `reporting.py`: Stable, line-based output; no ANSI; deterministic ordering.
-- `utils/determinism.py`: Seed control, tolerance constants, shared helpers.
+Backend endpoints
+- POST /verify: {problem:string, solution:string} → {stdout, stderr, exitCode, version, validationWarnings?}
+- POST /draft: {text:string} → translation_result (no verification).
+- POST /approve_and_verify: {structured_draft, run_options?:{compare_solvers?:bool}} → {stdout, stderr, exitCode, warnings?, internal_problem_json?, internal_solution_json?, version}
 
-Boundaries (not in v0.1)
-- No mixed-integer or continuous variables; binary only.
-- No non-linear constraints; only linear constraints with scalar rhs.
-- No stochastic outputs; no external solver APIs; no remote calls.
-- No parallelism or distributed runs.
-- No remote web/API components; thin local UI wrapper only, all logic in CLI.
-- No automatic best-known lookup; comparator must be provided in problem file.
-- No probabilistic statements; never claim optimality unless brute proves it.
-
-Example full run (plain text)
-```
-$ verify examples/problem.json examples/solution.json
-Input: vars=3, constraints=2, candidate=greedy-v1
-Feasibility: feasible
-Violations: none
-Objective:
-  linear=5.0
-  quadratic=-1.0
-  total=4.0
-Comparator:
-  best_known: 3.5 (label=paper-A)
-  gap: 14.29% worse
-Sensitivity (best 3 flips):
-  x1 flip -> +2.0 (feasible)
-  x2 flip -> -1.0 (feasible)
-  x3 flip -> +0.5 (feasible)
-Solver comparison (deterministic):
-  greedy: 4.0
-  brute: 3.5 (size=3^2=9 evaluated)
-Exit code: 0
-```
-
-Sample fixtures
-- `examples/problem.json`: 3-variable QUBO with two linear constraints and a provided best-known objective.
-- `examples/solution.json`: candidate assignment labeled `greedy-v1` for smoke testing.
+Deterministic draft→JSON rules
+- Validate variables unique; candidate_solution values in {0,1}; constraints senses in {<=,==,>=}. Errors block verify.
+- Variable ordering preserved for problem variables and solution assignment.
+- Max objective negates coefficients (info warning); >= constraints normalized to <= (info warning). Unknown variable references or missing assignments are blocking errors.
 
 How to run
-- Install Python 3.10+.
-- Make sure the entrypoint is executable: `chmod +x bin/verify`.
-- Run: `./bin/verify examples/problem.json examples/solution.json`.
-- Optional flags (once implemented in CLI):
-  - `--compare-solvers` to run deterministic greedy/brute/anneal.
-  - `--max-brute-size` to cap brute-force search space (default 4096 states).
-- Exit codes: 0 feasible, 1 infeasible, 2 error.
-- Version stamping: reports now include version metadata; print version only with `./bin/verify --print-version`.
-- Prove UI thinness: `make prove-ui` diff-checks CLI vs UI outputs.
-- Export reproducible bundles: `make export-run` or `python -m src.run_bundle <problem> <solution>`.
-- Demo script (feasible + infeasible, bundles included): `make demo`.
-- Failure capture: run the UI server with `VERIFY_SAVE_FAILURES=1` to archive non-zero runs into `failures/`.
-- Optional schema warnings: if `jsonschema` is installed (see `requirements.txt`), the UI surfaces non-blocking validation warnings before invoking the CLI.
+- Env: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`.
+- CLI: `chmod +x bin/verify` then `./bin/verify examples/problem.json examples/solution.json` (flags: `--compare-solvers`, `--max-brute-size`).
+- UI: `python backend/server.py` → open http://127.0.0.1:8000/ → use Tab A or Tab B as described.
+- Failure capture: set `VERIFY_SAVE_FAILURES=1` when running the UI server to archive non-zero runs in `failures/`.
+- Version stamping: `./bin/verify --print-version` for CLI-only; UI shows CLI/UI versions in footer.
 
-UI wrapper (local)
-- Start server: `python backend/server.py` (serves at http://127.0.0.1:8000).
-- Open the served page, paste or upload `problem.json` and `solution.json`, or click “Load Example”.
-- Click “Verify” to run the existing CLI; UI shows exit code, stdout verbatim, and optional stderr.
-
-Encoding constraints (v0.1)
-- `linear_eq`: sum(lhs_i * x_i) == rhs (tolerance 1e-9)
-- `linear_ineq`: sum(lhs_i * x_i) <= rhs (tolerance 1e-9). Encode >= by multiplying both sides by -1 to fit <= form.
-- `at_most_k`: sum(lhs_i * x_i) <= rhs (same semantics as linear_ineq; use when coefficients are 1s and rhs is k).
-- `xor`: sum(lhs_i * x_i) == 1
+Tests
+- All tests: `.venv/bin/python -m pytest`
+- UI/CLI parity: `tests/test_ui_equivalence.py` ensures /verify matches CLI output.
+- Draft flow: `tests/test_draft_flow.py` covers draft validation and text→draft→approve→verify round-trip.

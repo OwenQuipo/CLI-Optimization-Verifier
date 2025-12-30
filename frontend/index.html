@@ -8,55 +8,133 @@
 </head>
 <body>
   <main class="page">
-    <header>
-      <h1>Verify CLI</h1>
-      <p class="subtitle">Thin UI wrapper around <code>verify problem.json solution.json</code></p>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Binary verifier UI</p>
+        <h1>Verify CLI</h1>
+        <p class="subtitle">Verify binary problems without touching JSON. Draft from text, review structure, then approve &amp; run.</p>
+      </div>
+      <div class="version-block">
+        <div>CLI <span id="cli-version">unknown</span></div>
+        <div>UI <span id="ui-version">ui-local</span></div>
+      </div>
     </header>
 
-    <section class="inputs">
-      <div class="input-block">
-        <div class="block-header">
-          <label for="problem-input">problem.json</label>
-          <input type="file" id="problem-file" accept=".json">
+    <div class="tabs">
+      <button class="tab active" data-tab="json">Verify JSON</button>
+      <button class="tab" data-tab="text">Draft from Text</button>
+    </div>
+
+    <section class="tab-content active" data-content="json">
+      <div class="panel">
+        <div class="panel-title">Upload JSON</div>
+        <p class="muted">Existing flow. Provide exact <code>problem.json</code> and <code>solution.json</code>.</p>
+        <div class="inputs two-col">
+          <div class="input-block">
+            <div class="block-header">
+              <label for="problem-input">problem.json</label>
+              <input type="file" id="problem-file" accept=".json">
+            </div>
+            <textarea id="problem-input" spellcheck="false" rows="12"></textarea>
+          </div>
+          <div class="input-block">
+            <div class="block-header">
+              <label for="solution-input">solution.json</label>
+              <input type="file" id="solution-file" accept=".json">
+            </div>
+            <textarea id="solution-input" spellcheck="false" rows="12"></textarea>
+          </div>
         </div>
-        <textarea id="problem-input" spellcheck="false" rows="14"></textarea>
-      </div>
-      <div class="input-block">
-        <div class="block-header">
-          <label for="solution-input">solution.json</label>
-          <input type="file" id="solution-file" accept=".json">
+        <div class="actions">
+          <button id="load-example" type="button">Load Example</button>
+          <button id="verify-btn" type="button">Verify</button>
+          <div id="status" class="status pill">Idle</div>
         </div>
-        <textarea id="solution-input" spellcheck="false" rows="14"></textarea>
       </div>
     </section>
 
-    <section class="actions">
-      <button id="load-example" type="button">Load Example</button>
-      <button id="verify-btn" type="button">Verify</button>
-      <div id="status" class="status">Idle</div>
+    <section class="tab-content" data-content="text">
+      <div class="panel">
+        <div class="panel-title">Step 1 — Describe your plan</div>
+        <p class="muted">Type the problem in natural language. We’ll extract a structured draft, show warnings, and wait for your approval.</p>
+        <textarea id="draft-text-input" spellcheck="false" rows="8" placeholder="Example: Minimize 1 x1 + 2 x2 + 2 x3 - 1 x2*x3 subject to cap-1: x1 + x2 <= 2; min-cover: -x2 - x3 <= -1. Candidate solution x1=1, x2=1, x3=1."></textarea>
+        <div class="actions">
+          <button id="draft-generate-btn" type="button">Draft Structured Problem (unverified)</button>
+          <div id="draft-status" class="status pill">Awaiting draft</div>
+        </div>
+      </div>
+
+      <div class="panel banner warn" id="draft-banner" style="display:none;">
+        <div>
+          <strong>Drafted from text.</strong> Review required before verification.
+          <div class="muted" id="banner-subcopy"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="warnings-panel" style="display:none;">
+        <div class="panel-title">Warnings</div>
+        <div id="warnings-list" class="warnings-list"></div>
+      </div>
+
+      <div class="panel" id="clarification-panel" style="display:none;">
+        <div class="panel-title">Clarification needed</div>
+        <ul id="clarification-questions" class="clarification-list"></ul>
+      </div>
+
+      <div class="panel" id="draft-editor" style="display:none;">
+        <div class="panel-title">Step 2 — Review &amp; edit structured draft</div>
+        <div id="draft-sections"></div>
+      </div>
+
+      <div class="panel actions" id="approval-actions" style="display:none;">
+        <div class="action-group">
+          <button id="approve-verify-btn" type="button">Approve Structure &amp; Verify</button>
+          <button id="rerun-draft-btn" type="button" class="ghost">Re-run Drafting</button>
+          <label class="checkbox-inline">
+            <input type="checkbox" id="compare-solvers-toggle"> Compare solvers
+          </label>
+        </div>
+        <div class="action-group">
+          <button id="download-json-btn" type="button" class="ghost" disabled>Download internal JSON</button>
+        </div>
+        <div id="approval-status" class="status pill">Awaiting approval</div>
+      </div>
+
+      <div class="panel" id="draft-results" style="display:none;">
+        <div class="panel-title">Verification result</div>
+        <div class="result-line">
+          <div>Exit code: <span id="draft-exit-code">-</span></div>
+          <div>Status: <span id="draft-exit-status">-</span></div>
+        </div>
+        <div class="panel inner">
+          <div class="panel-title">stdout</div>
+          <pre id="draft-stdout" class="output-block"></pre>
+        </div>
+        <details id="draft-stderr-section" class="panel inner">
+          <summary class="panel-title">stderr</summary>
+          <pre id="draft-stderr" class="output-block"></pre>
+        </details>
+      </div>
     </section>
 
-    <section class="outputs">
+    <section class="panel outputs">
+      <div class="panel-title">Latest run</div>
       <div class="result-line">
         <div>Exit code: <span id="exit-code">-</span></div>
         <div>Status: <span id="exit-status">-</span></div>
       </div>
-      <div class="panel">
+      <div class="panel inner">
         <div class="panel-title">stdout</div>
         <pre id="stdout" class="output-block"></pre>
       </div>
-      <details id="validation-section" class="panel" style="display:none;">
+      <details id="validation-section" class="panel inner" style="display:none;">
         <summary class="panel-title">Validation warnings (non-blocking)</summary>
         <pre id="validation-warnings" class="output-block"></pre>
       </details>
-      <details id="stderr-section" class="panel">
+      <details id="stderr-section" class="panel inner">
         <summary class="panel-title">stderr</summary>
         <pre id="stderr" class="output-block"></pre>
       </details>
-      <div class="result-line">
-        <div>CLI version: <span id="cli-version">unknown</span></div>
-        <div>UI version: <span id="ui-version">ui-local</span></div>
-      </div>
     </section>
   </main>
 

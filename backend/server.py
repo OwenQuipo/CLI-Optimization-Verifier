@@ -15,6 +15,7 @@ try:  # Optional dependency for schema validation
 except Exception:  # pragma: no cover - optional
     jsonschema = None
 
+from backend.draft_flow import draft_to_internal_json, translate_text_to_draft
 from src.run_bundle import create_bundle
 from src.version import version_metadata
 
@@ -48,25 +49,67 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path != "/verify":
-            self.send_error(404, "Not found")
+        if self.path == "/verify":
+            self._handle_verify()
             return
-
-        content_length = int(self.headers.get("Content-Length", "0"))
-        try:
-            body = self.rfile.read(content_length)
-            payload = json.loads(body)
-        except json.JSONDecodeError:
-            self._write_json({"error": "Invalid JSON body"}, status=400)
+        if self.path == "/draft":
+            self._handle_draft()
             return
+        if self.path == "/approve_and_verify":
+            self._handle_approve_and_verify()
+            return
+        self.send_error(404, "Not found")
 
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
+        return  # Silence default stderr logging
+
+    def _handle_draft(self) -> None:
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        text = payload.get("text")
+        if not isinstance(text, str):
+            self._write_json({"error": "Field 'text' must be provided"}, status=400)
+            return
+        result = translate_text_to_draft(text)
+        self._write_json(result, status=200)
+
+    def _handle_approve_and_verify(self) -> None:
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        draft = payload.get("structured_draft")
+        run_options = payload.get("run_options") or {}
+        if not isinstance(draft, dict):
+            self._write_json({"error": "structured_draft must be an object"}, status=400)
+            return
+        problem_json, solution_json, warnings = draft_to_internal_json(draft)
+        warning_dicts = [w.to_dict() for w in warnings]
+        if any(w["severity"] == "error" for w in warning_dicts):
+            self._write_json({"error": "Draft contains blocking errors", "warnings": warning_dicts}, status=400)
+            return
+        compare_solvers = bool(run_options.get("compare_solvers", False))
+        response = self._run_verifier(problem_json, solution_json, compare_solvers=compare_solvers)
+        response["internal_problem_json"] = problem_json
+        response["internal_solution_json"] = solution_json
+        if warning_dicts:
+            response["warnings"] = warning_dicts
+        self._write_json(response, status=200)
+
+    def _handle_verify(self) -> None:
+        payload = self._read_json_body()
+        if payload is None:
+            return
         problem_text = payload.get("problem")
         solution_text = payload.get("solution")
         if not isinstance(problem_text, str) or not isinstance(solution_text, str):
             self._write_json({"error": "Both 'problem' and 'solution' must be provided as strings"}, status=400)
             return
-        validation_warnings = self._validate_inputs(problem_text, solution_text)
+        response = self._run_verifier(problem_text, solution_text)
+        self._write_json(response, status=200)
 
+    def _run_verifier(self, problem_text: str, solution_text: str, compare_solvers: bool = False) -> dict[str, Any]:
+        validation_warnings = self._validate_inputs(problem_text, solution_text)
         problem_path = None
         solution_path = None
         try:
@@ -77,8 +120,11 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
             with os.fdopen(solution_fd, "w") as solution_file:
                 solution_file.write(solution_text)
 
+            cmd = [str(VERIFY_BIN), problem_path, solution_path]
+            if compare_solvers:
+                cmd.append("--compare-solvers")
             result = subprocess.run(
-                [str(VERIFY_BIN), problem_path, solution_path],
+                cmd,
                 capture_output=True,
                 text=True,
                 check=False,
@@ -106,9 +152,7 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
                     )
                 except Exception:
                     pass  # Do not interfere with user-facing response
-            self._write_json(response, status=200)
-        except Exception as exc:  # pragma: no cover - defensive
-            self._write_json({"error": str(exc)}, status=500)
+            return response
         finally:
             for path in (problem_path, solution_path):
                 if path and os.path.exists(path):
@@ -116,9 +160,6 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
                         os.remove(path)
                     except OSError:
                         pass
-
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
-        return  # Silence default stderr logging
 
     def _validate_inputs(self, problem_text: str, solution_text: str) -> list[str]:
         warnings: list[str] = []
@@ -146,6 +187,15 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)
+
+    def _read_json_body(self) -> dict[str, Any] | None:
+        content_length = int(self.headers.get("Content-Length", "0"))
+        try:
+            body = self.rfile.read(content_length)
+            return json.loads(body)
+        except json.JSONDecodeError:
+            self._write_json({"error": "Invalid JSON body"}, status=400)
+        return None
 
 
 def main() -> None:
