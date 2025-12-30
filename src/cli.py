@@ -12,6 +12,7 @@ from src.reporting import render_report
 from src.sensitivity import sensitivity_analysis
 from src.solvers import brute_force_solver, deterministic_anneal, greedy_solver
 from src.utils.determinism import set_seed
+from src.version import version_metadata, version_string
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -29,11 +30,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=4096,
         help="Maximum states for brute force (2^n); skips if exceeded",
     )
+    parser.add_argument(
+        "--print-version",
+        action="store_true",
+        help="Print CLI version and exit",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
+    if args.print_version:
+        sys.stdout.write(version_string() + "\n")
+        return 0
     set_seed(0)
     try:
         problem = load_problem(args.problem)
@@ -69,7 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         solver_comparison=solver_comparison,
     )
 
-    report = render_report(problem, solution, run_result)
+    version_meta = version_metadata()
+    report = render_report(problem, solution, run_result, version_meta)
     sys.stdout.write(report + "\n")
 
     if feasibility.status == "feasible":

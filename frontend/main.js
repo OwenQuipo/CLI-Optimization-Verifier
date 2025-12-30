@@ -8,12 +8,17 @@ const exitStatusEl = document.getElementById("exit-status");
 const stdoutEl = document.getElementById("stdout");
 const stderrEl = document.getElementById("stderr");
 const stderrSection = document.getElementById("stderr-section");
+const validationSection = document.getElementById("validation-section");
+const validationEl = document.getElementById("validation-warnings");
+const cliVersionEl = document.getElementById("cli-version");
+const uiVersionEl = document.getElementById("ui-version");
 const problemFileInput = document.getElementById("problem-file");
 const solutionFileInput = document.getElementById("solution-file");
 
 const EXIT_STATUS = {
   0: "Feasible",
   1: "Infeasible",
+  2: "Error",
 };
 
 const setStatus = (text, mode = "idle") => {
@@ -66,6 +71,19 @@ const renderResult = (data) => {
     stderrSection.open = false;
     stderrSection.style.display = "none";
   }
+  const warnings = Array.isArray(data.validationWarnings) ? data.validationWarnings : [];
+  if (warnings.length > 0) {
+    validationEl.textContent = warnings.join("\n");
+    validationSection.style.display = "";
+    validationSection.open = false;
+  } else {
+    validationEl.textContent = "";
+    validationSection.style.display = "none";
+    validationSection.open = false;
+  }
+  const version = data.version || {};
+  cliVersionEl.textContent = version.cli_version || "unknown";
+  uiVersionEl.textContent = version.ui_version || "ui-local";
 
   if (exitCode === 0) {
     setStatus("Feasible (exit code 0)", "ok");

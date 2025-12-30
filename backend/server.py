@@ -10,9 +10,32 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
+try:  # Optional dependency for schema validation
+    import jsonschema
+except Exception:  # pragma: no cover - optional
+    jsonschema = None
+
+from src.run_bundle import create_bundle
+from src.version import version_metadata
+
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / "frontend"
 VERIFY_BIN = ROOT / "bin" / "verify"
+SCHEMAS_DIR = ROOT / "schemas"
+UI_VERSION = os.environ.get("UI_VERSION", "ui-local")
+SAVE_FAILURES = os.environ.get("VERIFY_SAVE_FAILURES", "0") == "1"
+
+
+def _load_schema(name: str) -> dict[str, Any] | None:
+    schema_path = SCHEMAS_DIR / name
+    if not schema_path.exists():
+        return None
+    with schema_path.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+PROBLEM_SCHEMA = _load_schema("problem.schema.json")
+SOLUTION_SCHEMA = _load_schema("solution.schema.json")
 
 
 class VerifyRequestHandler(SimpleHTTPRequestHandler):
@@ -42,6 +65,7 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
         if not isinstance(problem_text, str) or not isinstance(solution_text, str):
             self._write_json({"error": "Both 'problem' and 'solution' must be provided as strings"}, status=400)
             return
+        validation_warnings = self._validate_inputs(problem_text, solution_text)
 
         problem_path = None
         solution_path = None
@@ -63,7 +87,25 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
                 "exitCode": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
+                "version": version_metadata(ui_version=UI_VERSION),
             }
+            if validation_warnings:
+                response["validationWarnings"] = validation_warnings
+            if SAVE_FAILURES and result.returncode != 0:
+                try:
+                    create_bundle(
+                        problem_path=Path(problem_path),
+                        solution_path=Path(solution_path),
+                        stdout=result.stdout,
+                        stderr=result.stderr,
+                        exit_code=result.returncode,
+                        origin="ui",
+                        bundle_dir=ROOT / "failures",
+                        ui_version=UI_VERSION,
+                        validation_warnings=validation_warnings,
+                    )
+                except Exception:
+                    pass  # Do not interfere with user-facing response
             self._write_json(response, status=200)
         except Exception as exc:  # pragma: no cover - defensive
             self._write_json({"error": str(exc)}, status=500)
@@ -77,6 +119,25 @@ class VerifyRequestHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
         return  # Silence default stderr logging
+
+    def _validate_inputs(self, problem_text: str, solution_text: str) -> list[str]:
+        warnings: list[str] = []
+        if not jsonschema or not PROBLEM_SCHEMA or not SOLUTION_SCHEMA:
+            return warnings
+        warnings.extend(self._validate_one(problem_text, PROBLEM_SCHEMA, "problem.json"))
+        warnings.extend(self._validate_one(solution_text, SOLUTION_SCHEMA, "solution.json"))
+        return warnings
+
+    def _validate_one(self, content: str, schema: dict[str, Any], label: str) -> list[str]:
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as exc:
+            return [f"{label}: invalid JSON ({exc})"]
+        validator = jsonschema.Draft7Validator(schema)
+        messages = []
+        for error in validator.iter_errors(data):
+            messages.append(f"{label}: {error.message}")
+        return messages
 
     def _write_json(self, payload: dict[str, Any], status: int = 200) -> None:
         encoded = json.dumps(payload).encode("utf-8")

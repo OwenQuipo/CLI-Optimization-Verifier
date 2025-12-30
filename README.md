@@ -11,6 +11,12 @@ Directory structure
 ├── README.md                  # Design and execution plan
 ├── bin/
 │   └── verify                 # CLI entry (Python/Go/Node wrapper; single binary later)
+├── backend/
+│   └── server.py              # Local HTTP server; wraps CLI as-is
+├── frontend/
+│   ├── index.html             # Minimal UI wrapper
+│   ├── main.js                # Sends inputs, displays raw outputs
+│   └── style.css              # Simple styling for demo
 ├── src/
 │   ├── cli.py                 # Argument parsing, execution flow orchestration
 │   ├── models.py              # Core data models (Problem, Solution, Constraint, Objective, RunResult)
@@ -73,7 +79,7 @@ Boundaries (not in v0.1)
 - No non-linear constraints; only linear constraints with scalar rhs.
 - No stochastic outputs; no external solver APIs; no remote calls.
 - No parallelism or distributed runs.
-- No web/UI components; CLI only.
+- No remote web/API components; thin local UI wrapper only, all logic in CLI.
 - No automatic best-known lookup; comparator must be provided in problem file.
 - No probabilistic statements; never claim optimality unless brute proves it.
 
@@ -112,6 +118,12 @@ How to run
   - `--compare-solvers` to run deterministic greedy/brute/anneal.
   - `--max-brute-size` to cap brute-force search space (default 4096 states).
 - Exit codes: 0 feasible, 1 infeasible, 2 error.
+- Version stamping: reports now include version metadata; print version only with `./bin/verify --print-version`.
+- Prove UI thinness: `make prove-ui` diff-checks CLI vs UI outputs.
+- Export reproducible bundles: `make export-run` or `python -m src.run_bundle <problem> <solution>`.
+- Demo script (feasible + infeasible, bundles included): `make demo`.
+- Failure capture: run the UI server with `VERIFY_SAVE_FAILURES=1` to archive non-zero runs into `failures/`.
+- Optional schema warnings: if `jsonschema` is installed (see `requirements.txt`), the UI surfaces non-blocking validation warnings before invoking the CLI.
 
 UI wrapper (local)
 - Start server: `python backend/server.py` (serves at http://127.0.0.1:8000).

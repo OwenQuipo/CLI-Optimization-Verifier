@@ -82,7 +82,18 @@ def _render_solvers(comparison: Dict[str, Optional[float]]) -> List[str]:
     return lines
 
 
-def render_report(problem: Problem, solution: Solution, result: RunResult) -> str:
+def _render_version(meta: Optional[dict[str, str]]) -> List[str]:
+    if not meta:
+        return []
+    lines: List[str] = ["Version:"]
+    for key in sorted(meta.keys()):
+        lines.append(f"  {key}={meta[key]}")
+    return lines
+
+
+def render_report(
+    problem: Problem, solution: Solution, result: RunResult, version_meta: Optional[dict[str, str]] = None
+) -> str:
     lines: List[str] = [
         f"Input: vars={len(problem.variables)}, constraints={len(problem.constraints)}, candidate={solution.label}"
     ]
@@ -91,4 +102,5 @@ def render_report(problem: Problem, solution: Solution, result: RunResult) -> st
     lines.extend(_render_comparator(result.best_known, result.gap))
     lines.extend(_render_sensitivity(result.sensitivity))
     lines.extend(_render_solvers(result.solver_comparison))
+    lines.extend(_render_version(version_meta))
     return "\n".join(lines)

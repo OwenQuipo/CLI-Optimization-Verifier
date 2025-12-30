@@ -1,0 +1,12 @@
+{
+  "label": "violates-cover",
+  "assignment": {
+    "x1": 1,
+    "x2": 0,
+    "x3": 0
+  },
+  "metadata": {
+    "source": "example",
+    "notes": "Intentionally infeasible: breaks min-cover constraint"
+  }
+}
