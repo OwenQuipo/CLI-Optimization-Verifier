@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify CLI Wrapper</title>
+  <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>Verify CLI</h1>
+      <p class="subtitle">Thin UI wrapper around <code>verify problem.json solution.json</code></p>
+    </header>
+
+    <section class="inputs">
+      <div class="input-block">
+        <div class="block-header">
+          <label for="problem-input">problem.json</label>
+          <input type="file" id="problem-file" accept=".json">
+        </div>
+        <textarea id="problem-input" spellcheck="false" rows="14"></textarea>
+      </div>
+      <div class="input-block">
+        <div class="block-header">
+          <label for="solution-input">solution.json</label>
+          <input type="file" id="solution-file" accept=".json">
+        </div>
+        <textarea id="solution-input" spellcheck="false" rows="14"></textarea>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="load-example" type="button">Load Example</button>
+      <button id="verify-btn" type="button">Verify</button>
+      <div id="status" class="status">Idle</div>
+    </section>
+
+    <section class="outputs">
+      <div class="result-line">
+        <div>Exit code: <span id="exit-code">-</span></div>
+        <div>Status: <span id="exit-status">-</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">stdout</div>
+        <pre id="stdout" class="output-block"></pre>
+      </div>
+      <details id="stderr-section" class="panel">
+        <summary class="panel-title">stderr</summary>
+        <pre id="stderr" class="output-block"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script src="/frontend/main.js"></script>
+</body>
+</html>

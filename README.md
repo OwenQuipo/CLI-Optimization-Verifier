@@ -113,6 +113,11 @@ How to run
   - `--max-brute-size` to cap brute-force search space (default 4096 states).
 - Exit codes: 0 feasible, 1 infeasible, 2 error.
 
+UI wrapper (local)
+- Start server: `python backend/server.py` (serves at http://127.0.0.1:8000).
+- Open the served page, paste or upload `problem.json` and `solution.json`, or click “Load Example”.
+- Click “Verify” to run the existing CLI; UI shows exit code, stdout verbatim, and optional stderr.
+
 Encoding constraints (v0.1)
 - `linear_eq`: sum(lhs_i * x_i) == rhs (tolerance 1e-9)
 - `linear_ineq`: sum(lhs_i * x_i) <= rhs (tolerance 1e-9). Encode >= by multiplying both sides by -1 to fit <= form.

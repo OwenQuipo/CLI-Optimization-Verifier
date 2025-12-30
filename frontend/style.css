@@ -1,0 +1,165 @@
+:root {
+  --bg: #f8f9fb;
+  --panel: #ffffff;
+  --border: #d6d9df;
+  --text: #1f2430;
+  --muted: #5a6275;
+  --accent: #1f6feb;
+  --error: #c03221;
+  --pending: #945600;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "SF Pro Text", "Segoe UI", -apple-system, sans-serif;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+header h1 {
+  margin: 0;
+}
+
+.subtitle {
+  margin: 4px 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.input-block {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  background: #fdfefe;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 18px 0;
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.status.ok {
+  color: var(--accent);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.status.pending {
+  color: var(--pending);
+}
+
+.outputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-line {
+  display: flex;
+  gap: 16px;
+  font-weight: 600;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 10px 12px;
+}
+
+.panel-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+details > summary.panel-title {
+  list-style: none;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+details > summary.panel-title::marker,
+details > summary.panel-title::-webkit-details-marker {
+  display: none;
+}
+
+.output-block {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
